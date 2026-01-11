@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/inventory.dart';
+import '../models/category.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/top_navigation_bar.dart';
 import 'component_detail_screen.dart';
@@ -21,12 +22,34 @@ class _InventoryAnalysisScreenState extends State<InventoryAnalysisScreen> {
   int? _categoryFilter;
   String? _statusFilter = 'ACTIVE';
   bool _includeLowStock = true;
+  List<Category> _categories = [];
+  bool _isLoadingCategories = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
+    _loadCategories();
     _loadInventoryCost();
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() {
+      _isLoadingCategories = true;
+    });
+
+    try {
+      final categories = await _apiService.listCategories(statusFilter: 'ACTIVE');
+      setState(() {
+        _categories = categories;
+        _isLoadingCategories = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingCategories = false;
+      });
+      // Silently fail - categories will be empty
+    }
   }
 
   Future<void> _loadUserInfo() async {
@@ -109,23 +132,34 @@ class _InventoryAnalysisScreenState extends State<InventoryAnalysisScreen> {
                                   Expanded(
                                     child: DropdownButtonFormField<int>(
                                       value: _categoryFilter,
-                                      decoration: const InputDecoration(
+                                      decoration: InputDecoration(
                                         labelText: 'Category',
-                                        border: OutlineInputBorder(),
+                                        border: const OutlineInputBorder(),
+                                        suffixIcon: _isLoadingCategories
+                                            ? const SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child: Padding(
+                                                  padding: EdgeInsets.all(12.0),
+                                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                                ),
+                                              )
+                                            : null,
                                       ),
-                                      items: const [
-                                        DropdownMenuItem(value: null, child: Text('All')),
-                                        DropdownMenuItem(value: 1, child: Text('Transistor')),
-                                        DropdownMenuItem(value: 2, child: Text('IC')),
-                                        DropdownMenuItem(value: 3, child: Text('Resistor')),
-                                        DropdownMenuItem(value: 4, child: Text('Capacitor')),
-                                        DropdownMenuItem(value: 5, child: Text('Diode')),
+                                      items: [
+                                        const DropdownMenuItem(value: null, child: Text('All')),
+                                        ..._categories.map((category) => DropdownMenuItem(
+                                              value: category.id,
+                                              child: Text(category.name),
+                                            )),
                                       ],
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _categoryFilter = value;
-                                        });
-                                      },
+                                      onChanged: _isLoadingCategories
+                                          ? null
+                                          : (value) {
+                                              setState(() {
+                                                _categoryFilter = value;
+                                              });
+                                            },
                                     ),
                                   ),
                                   const SizedBox(width: 16),
@@ -400,4 +434,5 @@ class _InventoryAnalysisScreenState extends State<InventoryAnalysisScreen> {
     );
   }
 }
+
 

@@ -436,7 +436,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         children: [
                           TableCell(child: Text(component.partNumber)),
                           TableCell(child: Text(component.categoryName ?? 'N/A')),
-                          TableCell(child: const Text('N/A')), // Stock would come from inventory
+                          TableCell(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('${component.quantity}'),
+                                if (component.minQty != null && component.quantity < component.minQty!)
+                                  const Padding(
+                                    padding: EdgeInsets.only(left: 4),
+                                    child: Icon(Icons.warning, color: Colors.red, size: 16),
+                                  ),
+                              ],
+                            ),
+                          ),
                           TableCell(child: Text('\$${component.unitPrice.toStringAsFixed(2)}')),
                           TableCell(
                             child: TextButton(

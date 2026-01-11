@@ -120,7 +120,7 @@ curl -X POST "http://localhost:8000/login" \
 **Note:** Default admin credentials:
 - Username: `admin`
 - Password: `admin123`
-(Change in production!)
+  (Change in production!)
 
 ---
 
@@ -228,7 +228,7 @@ curl -X POST "http://localhost:8000/chat" \
 
 ### Component Data Structure
 
-Components returned by the agent include:
+Components returned by the API include inventory information:
 
 ```json
 {
@@ -241,16 +241,27 @@ Components returned by the agent include:
   "polarity": "PNP",
   "channel": null,
   "package": "SOT-23",
-  "v_max": 25.0,
-  "i_max": 0.5,
-  "power_max": 0.625,
+  "v_max": "25V",
+  "i_max": "0.5A",
+  "power_max": "0.625W",
   "gain_min": null,
   "gain_max": null,
   "unit_price": 0.15,
   "status": "ACTIVE",
-  "notes": null
+  "notes": null,
+  "quantity": 0,
+  "min_qty": 10,
+  "location": "A1-B2",
+  "inventory_last_updated": "2024-01-15T10:30:00",
+  "total_value": 0.0
 }
 ```
+
+**Note:**
+- `v_max`, `i_max`, `power_max`, `gain_min`, `gain_max` are strings to support units (e.g., "25V", "0.5A", "0.625W")
+- Inventory fields (`quantity`, `min_qty`, `location`, `inventory_last_updated`, `total_value`) are included with each component
+- If no inventory record exists, `quantity` will be `0` and other inventory fields will be `null`
+- `total_value` is calculated as `quantity * unit_price`
 
 ### Inventory Data Structure
 
@@ -284,8 +295,8 @@ Equivalents include pricing and inventory:
   "marking": "BC857B",
   "technology": "PNP",
   "package": "SOT-23",
-  "v_max": 45.0,
-  "i_max": 0.1,
+  "v_max": "45V",
+  "i_max": "0.1A",
   "unit_price": 0.12,
   "quantity": 150,
   "total_value": 18.00
@@ -394,7 +405,7 @@ const component = await client.createComponent({
   category_id: 1,
   technology: "NPN",
   package: "TO-92",
-  v_max: 45.0,
+  v_max: "45V",
   unit_price: 0.10
 });
 ```
@@ -403,7 +414,7 @@ const component = await client.createComponent({
 ```typescript
 const updated = await client.updateComponent(5, {
   unit_price: 0.12,
-  v_max: 50.0
+  v_max: "50V"
 });
 ```
 
@@ -793,6 +804,137 @@ class ALORAClient {
 
     return await response.json();
   }
+
+  async createCategory(category: { name: string; description?: string }): Promise<any> {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${this.baseURL}/categories`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(category)
+    });
+
+    if (response.status === 401) {
+      this.token = null;
+      localStorage.removeItem('token');
+      throw new Error('Token expired');
+    }
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to create category');
+    }
+
+    return await response.json();
+  }
+
+  async listCategories(status_filter?: string): Promise<any[]> {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    const params = new URLSearchParams();
+    if (status_filter) params.append('status_filter', status_filter);
+
+    const url = `${this.baseURL}/categories${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      }
+    });
+
+    if (response.status === 401) {
+      this.token = null;
+      localStorage.removeItem('token');
+      throw new Error('Token expired');
+    }
+
+    return await response.json();
+  }
+
+  async getCategory(category_id: number): Promise<any> {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${this.baseURL}/categories/${category_id}`, {
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      }
+    });
+
+    if (response.status === 401) {
+      this.token = null;
+      localStorage.removeItem('token');
+      throw new Error('Token expired');
+    }
+
+    if (response.status === 404) {
+      throw new Error('Category not found');
+    }
+
+    return await response.json();
+  }
+
+  async updateCategory(category_id: number, updates: { name?: string; description?: string; status?: string }): Promise<any> {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${this.baseURL}/categories/${category_id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updates)
+    });
+
+    if (response.status === 401) {
+      this.token = null;
+      localStorage.removeItem('token');
+      throw new Error('Token expired');
+    }
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to update category');
+    }
+
+    return await response.json();
+  }
+
+  async deleteCategory(category_id: number): Promise<void> {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${this.baseURL}/categories/${category_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      }
+    });
+
+    if (response.status === 401) {
+      this.token = null;
+      localStorage.removeItem('token');
+      throw new Error('Token expired');
+    }
+
+    if (response.status === 404) {
+      throw new Error('Category not found');
+    }
+
+    if (!response.ok) {
+      throw new Error('Failed to delete category');
+    }
+  }
 }
 
 // Usage
@@ -1027,6 +1169,81 @@ class ALORAClient:
         )
         response.raise_for_status()
         return response.json()
+    
+    def create_category(self, name: str, description: str = None) -> dict:
+        if not self.token:
+            raise ValueError("Not authenticated")
+        
+        response = requests.post(
+            f"{self.base_url}/categories",
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json"
+            },
+            json={"name": name, "description": description}
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    def list_categories(self, status_filter: str = None) -> list:
+        if not self.token:
+            raise ValueError("Not authenticated")
+        
+        params = {}
+        if status_filter:
+            params["status_filter"] = status_filter
+        
+        response = requests.get(
+            f"{self.base_url}/categories",
+            headers={"Authorization": f"Bearer {self.token}"},
+            params=params
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    def get_category(self, category_id: int) -> dict:
+        if not self.token:
+            raise ValueError("Not authenticated")
+        
+        response = requests.get(
+            f"{self.base_url}/categories/{category_id}",
+            headers={"Authorization": f"Bearer {self.token}"}
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    def update_category(self, category_id: int, name: str = None, description: str = None, status: str = None) -> dict:
+        if not self.token:
+            raise ValueError("Not authenticated")
+        
+        updates = {}
+        if name is not None:
+            updates["name"] = name
+        if description is not None:
+            updates["description"] = description
+        if status is not None:
+            updates["status"] = status
+        
+        response = requests.put(
+            f"{self.base_url}/categories/{category_id}",
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json"
+            },
+            json=updates
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    def delete_category(self, category_id: int) -> None:
+        if not self.token:
+            raise ValueError("Not authenticated")
+        
+        response = requests.delete(
+            f"{self.base_url}/categories/{category_id}",
+            headers={"Authorization": f"Bearer {self.token}"}
+        )
+        response.raise_for_status()
 
 # Usage
 client = ALORAClient()
@@ -1104,6 +1321,10 @@ adjusted = client.adjust_inventory_quantity(component_id=1, adjustment=-5)
 
 9. **Inventory Management**: Use `/inventory` endpoints to add, update, and manage component quantities. The `/inventory/{id}/adjust` endpoint allows you to add or subtract quantities easily without needing to know the current quantity.
 
+10. **Components with Inventory**: The `/components` endpoints automatically include inventory information (quantity, min_qty, location, total_value) with each component. If no inventory record exists, `quantity` will be `0` and other inventory fields will be `null`.
+
+11. **Component Specifications as Strings**: The `v_max`, `i_max`, `power_max`, `gain_min`, and `gain_max` fields are strings to support units (e.g., "25V", "0.5A", "0.625W"). This allows flexible specification formats with units included.
+
 ---
 
 ## Component Management Endpoints
@@ -1129,9 +1350,9 @@ Content-Type: application/json
   "technology": "NPN",
   "polarity": "NPN",
   "package": "TO-92",
-  "v_max": 45.0,
-  "i_max": 0.1,
-  "power_max": 0.5,
+  "v_max": "45V",
+  "i_max": "0.1A",
+  "power_max": "0.5W",
   "unit_price": 0.10,
   "notes": "General purpose NPN transistor",
   "additional_characteristics": {
@@ -1141,6 +1362,8 @@ Content-Type: application/json
   }
 }
 ```
+
+**Note:** The `v_max`, `i_max`, `power_max`, `gain_min`, and `gain_max` fields are strings to support units (e.g., "45V", "0.1A", "0.5W").
 
 **Note:** The `additional_characteristics` field is a flexible JSON object that can store any component-specific attributes. Examples:
 - **For ICs (like RK1808):** `{"pin_count": 48, "operating_voltage": "3.3V", "core": "ARM Cortex-A35", "memory": "512KB"}`
@@ -1160,16 +1383,23 @@ Content-Type: application/json
   "polarity": "NPN",
   "channel": null,
   "package": "TO-92",
-  "v_max": 45.0,
-  "i_max": 0.1,
-  "power_max": 0.5,
+  "v_max": "45V",
+  "i_max": "0.1A",
+  "power_max": "0.5W",
   "gain_min": null,
   "gain_max": null,
   "unit_price": 0.10,
   "status": "ACTIVE",
-  "notes": "General purpose NPN transistor"
+  "notes": "General purpose NPN transistor",
+  "quantity": 0,
+  "min_qty": null,
+  "location": null,
+  "inventory_last_updated": null,
+  "total_value": 0.0
 }
 ```
+
+**Note:** The response includes inventory fields. If no inventory record exists yet, `quantity` will be `0` and other inventory fields will be `null`.
 
 **Error Responses:**
 - `400 Bad Request`: Component with same part_number already exists
@@ -1186,7 +1416,7 @@ curl -X POST "http://localhost:8000/components" \
     "category_id": 1,
     "technology": "NPN",
     "package": "TO-92",
-    "v_max": 45.0,
+    "v_max": "45V",
     "unit_price": 0.10
   }'
 ```
@@ -1197,7 +1427,7 @@ curl -X POST "http://localhost:8000/components" \
 
 **GET** `/components`
 
-Get a list of all components with optional filters.
+Get a list of all components with optional filters. **Each component includes inventory information.**
 
 **Headers:**
 ```
@@ -1220,12 +1450,17 @@ Authorization: Bearer <token>
     "technology": "PNP",
     "polarity": "PNP",
     "package": "SOT-23",
-    "v_max": 25.0,
-    "i_max": 0.5,
-    "power_max": 0.625,
+    "v_max": "25V",
+    "i_max": "0.5A",
+    "power_max": "0.625W",
     "unit_price": 0.15,
     "status": "ACTIVE",
-    "notes": null
+    "notes": null,
+    "quantity": 0,
+    "min_qty": 10,
+    "location": "A1-B2",
+    "inventory_last_updated": "2024-01-15T10:30:00",
+    "total_value": 0.0
   },
   {
     "id": 2,
@@ -1235,15 +1470,22 @@ Authorization: Bearer <token>
     "category_name": "Transistor",
     "technology": "PNP",
     "package": "SOT-23",
-    "v_max": 45.0,
-    "i_max": 0.1,
-    "power_max": 0.25,
+    "v_max": "45V",
+    "i_max": "0.1A",
+    "power_max": "0.25W",
     "unit_price": 0.12,
     "status": "ACTIVE",
-    "notes": null
+    "notes": null,
+    "quantity": 150,
+    "min_qty": 20,
+    "location": "A2-B3",
+    "inventory_last_updated": "2024-01-15T10:30:00",
+    "total_value": 18.00
   }
 ]
 ```
+
+**Note:** Inventory fields (`quantity`, `min_qty`, `location`, `inventory_last_updated`, `total_value`) are included with each component. If no inventory record exists, `quantity` will be `0` and other inventory fields will be `null`.
 
 **Example:**
 ```bash
@@ -1262,7 +1504,7 @@ curl -X GET "http://localhost:8000/components?category_id=1" \
 
 **GET** `/components/{component_id}`
 
-Get a single component by its ID.
+Get a single component by its ID. **Includes inventory information.**
 
 **Headers:**
 ```
@@ -1283,14 +1525,21 @@ Authorization: Bearer <token>
   "technology": "PNP",
   "polarity": "PNP",
   "package": "SOT-23",
-  "v_max": 25.0,
-  "i_max": 0.5,
-  "power_max": 0.625,
+  "v_max": "25V",
+  "i_max": "0.5A",
+  "power_max": "0.625W",
   "unit_price": 0.15,
   "status": "ACTIVE",
-  "notes": null
+  "notes": null,
+  "quantity": 0,
+  "min_qty": 10,
+  "location": "A1-B2",
+  "inventory_last_updated": "2024-01-15T10:30:00",
+  "total_value": 0.0
 }
 ```
+
+**Note:** Inventory information is automatically included. If no inventory record exists, `quantity` will be `0` and other inventory fields will be `null`.
 
 **Error Responses:**
 - `404 Not Found`: Component not found
@@ -1324,7 +1573,7 @@ Content-Type: application/json
 {
   "part_number": "BC547A",
   "unit_price": 0.12,
-  "v_max": 50.0,
+  "v_max": "50V",
   "notes": "Updated specifications"
 }
 ```
@@ -1339,14 +1588,21 @@ Content-Type: application/json
   "category_name": "Transistor",
   "technology": "NPN",
   "package": "TO-92",
-  "v_max": 50.0,
-  "i_max": 0.1,
-  "power_max": 0.5,
+  "v_max": "50V",
+  "i_max": "0.1A",
+  "power_max": "0.5W",
   "unit_price": 0.12,
   "status": "ACTIVE",
-  "notes": "Updated specifications"
+  "notes": "Updated specifications",
+  "quantity": 0,
+  "min_qty": null,
+  "location": null,
+  "inventory_last_updated": null,
+  "total_value": 0.0
 }
 ```
+
+**Note:** Response includes inventory information. If no inventory exists, `quantity` will be `0`.
 
 **Error Responses:**
 - `400 Bad Request`: New part_number already exists or no fields provided
@@ -1360,7 +1616,7 @@ curl -X PUT "http://localhost:8000/components/5" \
   -H "Content-Type: application/json" \
   -d '{
     "unit_price": 0.12,
-    "v_max": 50.0
+    "v_max": "50V"
   }'
 ```
 
@@ -1406,8 +1662,8 @@ curl -X DELETE "http://localhost:8000/components/5" \
 | `/me` | GET | Yes | Get current user info |
 | `/chat` | POST | Yes | Chat with ALORA agent |
 | `/components` | POST | Yes | Create new component |
-| `/components` | GET | Yes | List components (with filters) |
-| `/components/{id}` | GET | Yes | Get component by ID |
+| `/components` | GET | Yes | List components (with filters, includes inventory) |
+| `/components/{id}` | GET | Yes | Get component by ID (includes inventory) |
 | `/components/{id}` | PUT | Yes | Update component |
 | `/components/{id}` | DELETE | Yes | Soft delete component |
 | `/inventory` | POST | Yes | Add/Update inventory for component |
@@ -1416,6 +1672,11 @@ curl -X DELETE "http://localhost:8000/components/5" \
 | `/inventory/{id}` | PUT | Yes | Update inventory |
 | `/inventory/{id}/adjust` | POST | Yes | Adjust inventory quantity (add/subtract) |
 | `/inventory/cost` | GET | Yes | Calculate inventory cost summary |
+| `/categories` | POST | Yes | Create new category |
+| `/categories` | GET | Yes | List categories (with status filter) |
+| `/categories/{id}` | GET | Yes | Get category by ID |
+| `/categories/{id}` | PUT | Yes | Update category |
+| `/categories/{id}` | DELETE | Yes | Soft delete category (set status to INACTIVE) |
 
 ---
 
@@ -1823,9 +2084,9 @@ The schema supports various component types through the flexible `additional_cha
   "marking": "1N4148",
   "category_id": 5,
   "package": "DO-35",
-  "v_max": 100.0,
-  "i_max": 0.2,
-  "unit_price": 0.05,
+    "v_max": "100V",
+    "i_max": "0.2A",
+    "unit_price": 0.05,
   "additional_characteristics": {
     "forward_voltage": "0.7V",
     "reverse_voltage": "100V",
@@ -1845,10 +2106,10 @@ The schema supports various component types through the flexible `additional_cha
   "technology": "NPN",
   "polarity": "NPN",
   "package": "TO-92",
-  "v_max": 45.0,
-  "i_max": 0.1,
-  "power_max": 0.5,
-  "unit_price": 0.10,
+    "v_max": "45V",
+    "i_max": "0.1A",
+    "power_max": "0.5W",
+    "unit_price": 0.10,
   "additional_characteristics": {
     "hfe_min": 110,
     "hfe_max": 800,
@@ -1859,6 +2120,224 @@ The schema supports various component types through the flexible `additional_cha
 ```
 
 **Note:** The `additional_characteristics` field allows you to store any component-specific attributes that don't fit in the standard schema fields. This makes the system flexible enough to handle any component type.
+
+---
+
+## Category Management Endpoints
+
+### 17. Create Category
+
+**POST** `/categories`
+
+Create a new category in the database.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "name": "Transistor",
+  "description": "Semiconductor transistors"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "id": 1,
+  "name": "Transistor",
+  "description": "Semiconductor transistors",
+  "status": "ACTIVE"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Category with same name already exists
+- `401 Unauthorized`: Missing or invalid token
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8000/categories" \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Transistor",
+    "description": "Semiconductor transistors"
+  }'
+```
+
+---
+
+### 18. List Categories
+
+**GET** `/categories`
+
+Get a list of all categories with optional status filter.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `status_filter` (optional): Filter by status (`ACTIVE` or `INACTIVE`)
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "id": 1,
+    "name": "Transistor",
+    "description": "Semiconductor transistors",
+    "status": "ACTIVE"
+  },
+  {
+    "id": 2,
+    "name": "Resistor",
+    "description": "Passive resistors",
+    "status": "ACTIVE"
+  },
+  {
+    "id": 3,
+    "name": "Old Category",
+    "description": "Deprecated category",
+    "status": "INACTIVE"
+  }
+]
+```
+
+**Example:**
+```bash
+# Get all categories
+curl -X GET "http://localhost:8000/categories" \
+  -H "Authorization: Bearer <your-token>"
+
+# Get only active categories
+curl -X GET "http://localhost:8000/categories?status_filter=ACTIVE" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+---
+
+### 19. Get Category by ID
+
+**GET** `/categories/{category_id}`
+
+Get a single category by its ID.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Path Parameters:**
+- `category_id` (integer): The category ID
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "name": "Transistor",
+  "description": "Semiconductor transistors",
+  "status": "ACTIVE"
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Category not found
+- `401 Unauthorized`: Missing or invalid token
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/categories/1" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+---
+
+### 20. Update Category
+
+**PUT** `/categories/{category_id}`
+
+Update an existing category. Only provided fields will be updated.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Path Parameters:**
+- `category_id` (integer): The category ID
+
+**Request Body:** (All fields optional)
+```json
+{
+  "name": "Transistor Updated",
+  "description": "Updated description",
+  "status": "ACTIVE"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "name": "Transistor Updated",
+  "description": "Updated description",
+  "status": "ACTIVE"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: New name already exists, invalid status, or no fields provided
+- `404 Not Found`: Category not found
+- `401 Unauthorized`: Missing or invalid token
+
+**Example:**
+```bash
+curl -X PUT "http://localhost:8000/categories/1" \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Updated description",
+    "status": "ACTIVE"
+  }'
+```
+
+---
+
+### 21. Delete Category (Soft Delete)
+
+**DELETE** `/categories/{category_id}`
+
+Soft delete a category by setting its status to `INACTIVE`. The category is not physically deleted from the database.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Path Parameters:**
+- `category_id` (integer): The category ID
+
+**Response:** `204 No Content`
+
+**Error Responses:**
+- `404 Not Found`: Category not found
+- `401 Unauthorized`: Missing or invalid token
+
+**Example:**
+```bash
+curl -X DELETE "http://localhost:8000/categories/3" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+**Note:** After soft deletion, the category status will be `INACTIVE`. Components using this category will still reference it, but the category will be marked as inactive. The category can be restored by updating the status back to `ACTIVE`.
 
 ---
 

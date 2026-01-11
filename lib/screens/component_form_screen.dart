@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../services/api_service.dart';
 import '../models/component.dart';
+import '../models/category.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/top_navigation_bar.dart';
 import 'component_detail_screen.dart';
@@ -28,8 +29,8 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
   String _status = 'ACTIVE';
   String? _technology;
   String? _polarity;
-  String? _channel;
-  String? _package;
+  final _channelController = TextEditingController();
+  final _packageController = TextEditingController();
   final _vMaxController = TextEditingController();
   final _iMaxController = TextEditingController();
   final _powerMaxController = TextEditingController();
@@ -41,15 +42,37 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
   bool _isEditMode = false;
   Component? _existingComponent;
   String? _userName;
+  List<Category> _categories = [];
+  bool _isLoadingCategories = false;
 
   @override
   void initState() {
     super.initState();
     _isEditMode = widget.componentId != null;
+    _loadCategories();
     if (_isEditMode) {
       _loadComponent();
     }
     _loadUserInfo();
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() {
+      _isLoadingCategories = true;
+    });
+
+    try {
+      final categories = await _apiService.listCategories(statusFilter: 'ACTIVE');
+      setState(() {
+        _categories = categories;
+        _isLoadingCategories = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingCategories = false;
+      });
+      // Silently fail - categories will be empty
+    }
   }
 
   @override
@@ -58,6 +81,8 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
     _markingController.dispose();
     _notesController.dispose();
     _additionalCharsController.dispose();
+    _channelController.dispose();
+    _packageController.dispose();
     _vMaxController.dispose();
     _iMaxController.dispose();
     _powerMaxController.dispose();
@@ -95,8 +120,8 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
         _status = component.status;
         _technology = component.technology;
         _polarity = component.polarity;
-        _channel = component.channel ?? '';
-        _package = component.package;
+        _channelController.text = component.channel ?? '';
+        _packageController.text = component.package ?? '';
         _vMaxController.text = component.vMax?.toString() ?? '';
         _iMaxController.text = component.iMax?.toString() ?? '';
         _powerMaxController.text = component.powerMax?.toString() ?? '';
@@ -145,8 +170,8 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
         'status': _status,
         'technology': _technology,
         'polarity': _polarity,
-        'channel': _channel?.isEmpty ?? true ? null : _channel,
-        'package': _package,
+        'channel': _channelController.text.trim().isEmpty ? null : _channelController.text.trim(),
+        'package': _packageController.text.trim().isEmpty ? null : _packageController.text.trim(),
         'v_max': _vMaxController.text.isEmpty ? null : _vMaxController.text,
         'i_max': _iMaxController.text.isEmpty ? null : _iMaxController.text,
         'power_max': _powerMaxController.text.isEmpty ? null : _powerMaxController.text,
@@ -263,22 +288,46 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
                         const SizedBox(height: 16),
                         DropdownButtonFormField<int>(
                           value: _categoryId,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Category *',
-                            border: OutlineInputBorder(),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: _isLoadingCategories
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12.0),
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  )
+                                : null,
                           ),
-                          items: const [
-                            DropdownMenuItem(value: 1, child: Text('Transistor')),
-                            DropdownMenuItem(value: 2, child: Text('IC')),
-                            DropdownMenuItem(value: 3, child: Text('Resistor')),
-                            DropdownMenuItem(value: 4, child: Text('Capacitor')),
-                            DropdownMenuItem(value: 5, child: Text('Diode')),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _categoryId = value;
-                            });
-                          },
+                          items: _categories.isEmpty
+                              ? [
+                                  const DropdownMenuItem(
+                                    value: null,
+                                    child: Text('Loading categories...'),
+                                    enabled: false,
+                                  ),
+                                ]
+                              : [
+                                  const DropdownMenuItem(
+                                    value: null,
+                                    child: Text('Select Category'),
+                                    enabled: false,
+                                  ),
+                                  ..._categories.map((category) => DropdownMenuItem(
+                                        value: category.id,
+                                        child: Text(category.name),
+                                      )),
+                                ],
+                          onChanged: _isLoadingCategories
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _categoryId = value;
+                                  });
+                                },
                           validator: (value) {
                             if (value == null) {
                               return 'Category is required';
@@ -347,11 +396,7 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
-                          onChanged: (value) {
-                            setState(() {
-                              _channel = value.isEmpty ? null : value;
-                            });
-                          },
+                          controller: _channelController,
                           decoration: const InputDecoration(
                             labelText: 'Channel',
                             border: OutlineInputBorder(),
@@ -359,11 +404,7 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
-                          onChanged: (value) {
-                            setState(() {
-                              _package = value.isEmpty ? null : value;
-                            });
-                          },
+                          controller: _packageController,
                           decoration: const InputDecoration(
                             labelText: 'Package',
                             border: OutlineInputBorder(),

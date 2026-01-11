@@ -5,6 +5,7 @@ import '../models/user.dart';
 import '../models/component.dart';
 import '../models/inventory.dart';
 import '../models/chat.dart';
+import '../models/category.dart';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:8000';
@@ -461,6 +462,33 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Failed to adjust inventory: $e');
+    }
+  }
+
+  // List categories
+  Future<List<Category>> listCategories({String? statusFilter}) async {
+    try {
+      final queryParams = <String, String>{};
+      if (statusFilter != null) queryParams['status_filter'] = statusFilter;
+
+      final uri = Uri.parse('$baseUrl/categories').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+      
+      final response = await http.get(
+        uri,
+        headers: await getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List<dynamic>;
+        return data.map((item) => Category.fromJson(item as Map<String, dynamic>)).toList();
+      } else if (response.statusCode == 401) {
+        await removeToken();
+        throw Exception('Unauthorized - please login again');
+      } else {
+        throw Exception('Failed to list categories');
+      }
+    } catch (e) {
+      throw Exception('Failed to list categories: $e');
     }
   }
 }

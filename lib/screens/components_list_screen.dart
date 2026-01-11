@@ -226,9 +226,24 @@ class _ComponentsListScreenState extends State<ComponentsListScreen> {
                                         Text('Category: ${component.categoryName ?? 'N/A'}'),
                                         Text('Technology: ${component.technology ?? 'N/A'}'),
                                         Text('Package: ${component.package ?? 'N/A'}'),
+                                        Text('Stock: ${component.quantity}${component.minQty != null ? ' (Min: ${component.minQty})' : ''}'),
+                                        if (component.location != null) Text('Location: ${component.location}'),
                                         Text('Price: \$${component.unitPrice.toStringAsFixed(2)}'),
+                                        if (component.totalValue > 0) Text('Total Value: \$${component.totalValue.toStringAsFixed(2)}'),
                                         const SizedBox(height: 4),
-                                        StatusBadge(status: component.status),
+                                        Row(
+                                          children: [
+                                            StatusBadge(status: component.status),
+                                            if (component.minQty != null && component.quantity < component.minQty!)
+                                              Padding(
+                                                padding: const EdgeInsets.only(left: 8),
+                                                child: LowStockBadge(
+                                                  quantity: component.quantity,
+                                                  minQty: component.minQty!,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                       ],
                                     ),
                                     trailing: Row(
@@ -281,4 +296,5 @@ class _ComponentsListScreenState extends State<ComponentsListScreen> {
     );
   }
 }
+
 
