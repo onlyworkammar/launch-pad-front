@@ -1,0 +1,568 @@
+import 'package:flutter/material.dart';
+import 'dart:convert';
+import '../services/api_service.dart';
+import '../models/component.dart';
+import '../widgets/common_widgets.dart';
+import '../widgets/top_navigation_bar.dart';
+import 'component_detail_screen.dart';
+import 'components_list_screen.dart';
+
+class ComponentFormScreen extends StatefulWidget {
+  final int? componentId;
+
+  const ComponentFormScreen({super.key, this.componentId});
+
+  @override
+  State<ComponentFormScreen> createState() => _ComponentFormScreenState();
+}
+
+class _ComponentFormScreenState extends State<ComponentFormScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _apiService = ApiService();
+  final _partNumberController = TextEditingController();
+  final _markingController = TextEditingController();
+  final _notesController = TextEditingController();
+  final _additionalCharsController = TextEditingController();
+  
+  int? _categoryId;
+  String _status = 'ACTIVE';
+  String? _technology;
+  String? _polarity;
+  String? _channel;
+  String? _package;
+  final _vMaxController = TextEditingController();
+  final _iMaxController = TextEditingController();
+  final _powerMaxController = TextEditingController();
+  final _gainMinController = TextEditingController();
+  final _gainMaxController = TextEditingController();
+  final _unitPriceController = TextEditingController();
+
+  bool _isLoading = false;
+  bool _isEditMode = false;
+  Component? _existingComponent;
+  String? _userName;
+
+  @override
+  void initState() {
+    super.initState();
+    _isEditMode = widget.componentId != null;
+    if (_isEditMode) {
+      _loadComponent();
+    }
+    _loadUserInfo();
+  }
+
+  @override
+  void dispose() {
+    _partNumberController.dispose();
+    _markingController.dispose();
+    _notesController.dispose();
+    _additionalCharsController.dispose();
+    _vMaxController.dispose();
+    _iMaxController.dispose();
+    _powerMaxController.dispose();
+    _gainMinController.dispose();
+    _gainMaxController.dispose();
+    _unitPriceController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUserInfo() async {
+    try {
+      final user = await _apiService.getCurrentUser();
+      setState(() {
+        _userName = user.username;
+      });
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  Future<void> _loadComponent() async {
+    if (widget.componentId == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final component = await _apiService.getComponent(widget.componentId!);
+      setState(() {
+        _existingComponent = component;
+        _partNumberController.text = component.partNumber;
+        _markingController.text = component.marking ?? '';
+        _categoryId = component.categoryId;
+        _status = component.status;
+        _technology = component.technology;
+        _polarity = component.polarity;
+        _channel = component.channel ?? '';
+        _package = component.package;
+        _vMaxController.text = component.vMax?.toString() ?? '';
+        _iMaxController.text = component.iMax?.toString() ?? '';
+        _powerMaxController.text = component.powerMax?.toString() ?? '';
+        _gainMinController.text = component.gainMin?.toString() ?? '';
+        _gainMaxController.text = component.gainMax?.toString() ?? '';
+        _unitPriceController.text = component.unitPrice.toString();
+        _notesController.text = component.notes ?? '';
+        if (component.additionalCharacteristics != null) {
+          _additionalCharsController.text = const JsonEncoder.withIndent('  ').convert(component.additionalCharacteristics);
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading component: ${e.toString().replaceFirst('Exception: ', '')}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveComponent() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_categoryId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a category')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      Map<String, dynamic> componentData = {
+        'part_number': _partNumberController.text.trim(),
+        'marking': _markingController.text.trim().isEmpty ? null : _markingController.text.trim(),
+        'category_id': _categoryId!,
+        'status': _status,
+        'technology': _technology,
+        'polarity': _polarity,
+        'channel': _channel?.isEmpty ?? true ? null : _channel,
+        'package': _package,
+        'v_max': _vMaxController.text.isEmpty ? null : double.tryParse(_vMaxController.text),
+        'i_max': _iMaxController.text.isEmpty ? null : double.tryParse(_iMaxController.text),
+        'power_max': _powerMaxController.text.isEmpty ? null : double.tryParse(_powerMaxController.text),
+        'gain_min': _gainMinController.text.isEmpty ? null : double.tryParse(_gainMinController.text),
+        'gain_max': _gainMaxController.text.isEmpty ? null : double.tryParse(_gainMaxController.text),
+        'unit_price': double.parse(_unitPriceController.text),
+        'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+      };
+
+      // Parse additional characteristics JSON
+      if (_additionalCharsController.text.trim().isNotEmpty) {
+        try {
+          componentData['additional_characteristics'] = json.decode(_additionalCharsController.text);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Invalid JSON in Additional Characteristics')),
+            );
+            setState(() {
+              _isLoading = false;
+            });
+            return;
+          }
+        }
+      }
+
+      Component component;
+      if (_isEditMode) {
+        component = await _apiService.updateComponent(widget.componentId!, componentData);
+      } else {
+        component = await _apiService.createComponent(componentData);
+      }
+
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => ComponentDetailScreen(componentId: component.id),
+          ),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Component ${_isEditMode ? 'updated' : 'created'} successfully')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString().replaceFirst('Exception: ', '')}')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: TopNavigationBar(userName: _userName),
+      body: _isLoading && _isEditMode
+          ? const LoadingIndicator(message: 'Loading component...')
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        Expanded(
+                          child: Text(
+                            _isEditMode ? 'Edit Component: ${_existingComponent?.partNumber ?? ''}' : 'Create New Component',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Required Fields
+                    _buildSectionCard(
+                      'Required Fields',
+                      [
+                        TextFormField(
+                          controller: _partNumberController,
+                          decoration: const InputDecoration(
+                            labelText: 'Part Number *',
+                            border: OutlineInputBorder(),
+                          ),
+                          enabled: !_isEditMode,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Part number is required';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _markingController,
+                          decoration: const InputDecoration(
+                            labelText: 'Marking',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<int>(
+                          value: _categoryId,
+                          decoration: const InputDecoration(
+                            labelText: 'Category *',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 1, child: Text('Transistor')),
+                            DropdownMenuItem(value: 2, child: Text('IC')),
+                            DropdownMenuItem(value: 3, child: Text('Resistor')),
+                            DropdownMenuItem(value: 4, child: Text('Capacitor')),
+                            DropdownMenuItem(value: 5, child: Text('Diode')),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _categoryId = value;
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Category is required';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _status,
+                          decoration: const InputDecoration(
+                            labelText: 'Status',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'ACTIVE', child: Text('ACTIVE')),
+                            DropdownMenuItem(value: 'INACTIVE', child: Text('INACTIVE')),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _status = value!;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+
+                    // Technical Specifications
+                    _buildSectionCard(
+                      'Technical Specifications',
+                      [
+                        DropdownButtonFormField<String>(
+                          value: _technology,
+                          decoration: const InputDecoration(
+                            labelText: 'Technology',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'NPN', child: Text('NPN')),
+                            DropdownMenuItem(value: 'PNP', child: Text('PNP')),
+                            DropdownMenuItem(value: 'NMOS', child: Text('NMOS')),
+                            DropdownMenuItem(value: 'PMOS', child: Text('PMOS')),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _technology = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _polarity,
+                          decoration: const InputDecoration(
+                            labelText: 'Polarity',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'NPN', child: Text('NPN')),
+                            DropdownMenuItem(value: 'PNP', child: Text('PNP')),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _polarity = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          onChanged: (value) {
+                            setState(() {
+                              _channel = value.isEmpty ? null : value;
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Channel',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          onChanged: (value) {
+                            setState(() {
+                              _package = value.isEmpty ? null : value;
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Package',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _vMaxController,
+                          decoration: const InputDecoration(
+                            labelText: 'V_max',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _iMaxController,
+                          decoration: const InputDecoration(
+                            labelText: 'I_max',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _powerMaxController,
+                          decoration: const InputDecoration(
+                            labelText: 'Power_max',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _gainMinController,
+                          decoration: const InputDecoration(
+                            labelText: 'Gain_min',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _gainMaxController,
+                          decoration: const InputDecoration(
+                            labelText: 'Gain_max',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ],
+                    ),
+
+                    // Pricing
+                    _buildSectionCard(
+                      'Pricing',
+                      [
+                        TextFormField(
+                          controller: _unitPriceController,
+                          decoration: const InputDecoration(
+                            labelText: 'Unit Price *',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Unit price is required';
+                            }
+                            if (double.tryParse(value) == null) {
+                              return 'Please enter a valid number';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+
+                    // Additional Characteristics
+                    _buildSectionCard(
+                      'Additional Characteristics (JSON)',
+                      [
+                        TextFormField(
+                          controller: _additionalCharsController,
+                          decoration: const InputDecoration(
+                            labelText: 'JSON',
+                            border: OutlineInputBorder(),
+                            hintText: '{"key": "value"}',
+                          ),
+                          maxLines: 5,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: () {
+                                if (_additionalCharsController.text.trim().isNotEmpty) {
+                                  try {
+                                    final decoded = json.decode(_additionalCharsController.text);
+                                    _additionalCharsController.text = const JsonEncoder.withIndent('  ').convert(decoded);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('JSON formatted')),
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Invalid JSON')),
+                                    );
+                                  }
+                                }
+                              },
+                              icon: const Icon(Icons.format_align_left),
+                              label: const Text('Format JSON'),
+                            ),
+                            TextButton.icon(
+                              onPressed: () {
+                                _additionalCharsController.clear();
+                              },
+                              icon: const Icon(Icons.clear),
+                              label: const Text('Clear'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    // Notes
+                    _buildSectionCard(
+                      'Notes',
+                      [
+                        TextFormField(
+                          controller: _notesController,
+                          decoration: const InputDecoration(
+                            labelText: 'Notes',
+                            border: OutlineInputBorder(),
+                          ),
+                          maxLines: 3,
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _isLoading ? null : () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _saveComponent,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2563EB),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : Text(_isEditMode ? 'Update Component' : 'Save Component'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildSectionCard(String title, List<Widget> children) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
