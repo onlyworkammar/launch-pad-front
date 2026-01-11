@@ -62,7 +62,7 @@ class InventoryItem {
       componentId: json['component_id'] as int,
       partNumber: json['part_number'] as String,
       componentName: json['component_name'] as String,
-      categoryName: json['category_name'] as String,
+      categoryName: (json['category_name']??"None") as String,
       quantity: json['quantity'] as int,
       minQty: json['min_qty'] as int,
       location: json['location'] as String?,

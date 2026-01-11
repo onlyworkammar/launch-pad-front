@@ -217,7 +217,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
     
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Add Inventory'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -236,24 +236,24 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: () async {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
                 // Navigate to components list to select
+                if (!mounted) return;
                 final result = await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const ComponentSelectionScreen(),
                   ),
                 );
-                if (result != null && result is int) {
-                  print("component Id");
-                  print(result);
+                if (mounted && result != null && result is int) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => InventoryDetailScreen(componentId: result),
                     ),
-                  );
-                      //.then((_) => _loadInventory());
+                  ).then((_) {
+                    if (mounted) _loadInventory();
+                  });
                 }
               },
               icon: const Icon(Icons.search),
@@ -263,22 +263,25 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
               final componentId = int.tryParse(componentIdController.text);
               if (componentId != null) {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
+                if (!mounted) return;
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => InventoryDetailScreen(componentId: componentId),
                   ),
-                ).then((_) => _loadInventory());
+                ).then((_) {
+                  if (mounted) _loadInventory();
+                });
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
                   const SnackBar(content: Text('Please enter a valid component ID')),
                 );
               }

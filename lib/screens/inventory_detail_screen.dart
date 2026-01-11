@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/inventory.dart';
+import '../models/component.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/top_navigation_bar.dart';
 import 'component_detail_screen.dart';
@@ -25,6 +26,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
   final _locationController = TextEditingController();
   
   InventoryItem? _inventoryItem;
+  Component? _component; // Store component info separately
   bool _isLoading = true;
   bool _isEditing = false;
   String? _errorMessage;
@@ -34,7 +36,26 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
   void initState() {
     super.initState();
     _loadUserInfo();
-    _loadInventory();
+    _loadComponentAndInventory();
+  }
+
+  Future<void> _loadComponentAndInventory() async {
+    // First load component info (we always need this)
+    try {
+      final component = await _apiService.getComponent(widget.componentId);
+      setState(() {
+        _component = component;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Component not found: ${e.toString().replaceFirst('Exception: ', '')}';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Then try to load inventory
+    await _loadInventory();
   }
 
   @override
@@ -70,14 +91,31 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         _minQtyController.text = item.minQty.toString();
         _locationController.text = item.location ?? '';
         _isLoading = false;
+        _isEditing = false;
       });
     } catch (e) {
-      // Inventory might not exist - that's okay, we can create it
-      setState(() {
-        _inventoryItem = null;
-        _isLoading = false;
-        _isEditing = true; // Enable editing mode for new inventory
-      });
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      // Check if it's a "not found" error - that's expected for new inventory
+      if (errorMessage.toLowerCase().contains('not found') || 
+          errorMessage.toLowerCase().contains('inventory not found')) {
+        // Inventory doesn't exist - that's okay, we can create it
+        setState(() {
+          _inventoryItem = null;
+          _isLoading = false;
+          _isEditing = true; // Enable editing mode for new inventory
+          _errorMessage = null; // Clear error since this is expected
+          // Set default values for new inventory
+          _quantityController.text = '0';
+          _minQtyController.text = '10';
+          _locationController.text = '';
+        });
+      } else {
+        // It's a real error
+        setState(() {
+          _errorMessage = errorMessage;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -211,18 +249,29 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // If loading and no inventory item, show loading
+    if (_isLoading && _inventoryItem == null && !_isEditing) {
+      return Scaffold(
+        appBar: TopNavigationBar(userName: _userName),
+        body: const LoadingIndicator(message: 'Loading inventory...'),
+      );
+    }
+
+    // If there's an error and no inventory, show error
+    if (_errorMessage != null && _inventoryItem == null && !_isEditing) {
+      return Scaffold(
+        appBar: TopNavigationBar(userName: _userName),
+        body: ErrorMessage(
+          message: _errorMessage!,
+          onRetry: _loadInventory,
+        ),
+      );
+    }
+
+    // Get component info for display (we need to load it if inventory doesn't exist)
     return Scaffold(
       appBar: TopNavigationBar(userName: _userName),
-      body: _isLoading && _inventoryItem == null
-          ? const LoadingIndicator(message: 'Loading inventory...')
-          : _errorMessage != null && _inventoryItem == null
-              ? ErrorMessage(
-                  message: _errorMessage!,
-                  onRetry: _loadInventory,
-                )
-              : _inventoryItem == null
-                  ? const Center(child: Text('Inventory not found'))
-                  : SingleChildScrollView(
+      body: SingleChildScrollView(
                       padding: const EdgeInsets.all(16.0),
                       child: Form(
                         key: _formKey,
@@ -238,7 +287,9 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                                 ),
                                 Expanded(
                                   child: Text(
-                                    'Inventory: ${_inventoryItem!.partNumber}',
+                                    _inventoryItem != null
+                                        ? 'Inventory: ${_inventoryItem!.partNumber}'
+                                        : 'Add Inventory: ${_component?.partNumber ?? 'Component ${widget.componentId}'}',
                                     style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
@@ -286,9 +337,15 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 16),
-                                    _buildInfoRow('Part Number', _inventoryItem!.partNumber),
-                                    _buildInfoRow('Component Name', _inventoryItem!.componentName),
-                                    _buildInfoRow('Category', _inventoryItem!.categoryName),
+                                    if (_component != null) ...[
+                                      _buildInfoRow('Part Number', _component!.partNumber),
+                                      _buildInfoRow('Component Name', _component!.partNumber),
+                                      _buildInfoRow('Category', _component!.categoryName ?? 'N/A'),
+                                    ] else if (_inventoryItem != null) ...[
+                                      _buildInfoRow('Part Number', _inventoryItem!.partNumber),
+                                      _buildInfoRow('Component Name', _inventoryItem!.componentName),
+                                      _buildInfoRow('Category', _inventoryItem!.categoryName),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -312,7 +369,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        if (!_isEditing)
+                                        if (!_isEditing && _inventoryItem != null)
                                           ElevatedButton.icon(
                                             onPressed: _showAdjustDialog,
                                             icon: const Icon(Icons.add_circle_outline),
@@ -399,13 +456,21 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 16),
-                                    _buildInfoRow('Unit Price', '\$${_inventoryItem!.unitPrice.toStringAsFixed(2)}'),
-                                    _buildInfoRow('Total Value', '\$${_inventoryItem!.totalValue.toStringAsFixed(2)}'),
-                                    if (_inventoryItem!.lastUpdated != null)
-                                      _buildInfoRow(
-                                        'Last Updated',
-                                        _inventoryItem!.lastUpdated!.toString().substring(0, 16),
+                                    if (_inventoryItem != null) ...[
+                                      _buildInfoRow('Unit Price', '\$${_inventoryItem!.unitPrice.toStringAsFixed(2)}'),
+                                      _buildInfoRow('Total Value', '\$${_inventoryItem!.totalValue.toStringAsFixed(2)}'),
+                                      if (_inventoryItem!.lastUpdated != null)
+                                        _buildInfoRow(
+                                          'Last Updated',
+                                          _inventoryItem!.lastUpdated!.toString().substring(0, 16),
+                                        ),
+                                    ] else if (_component != null) ...[
+                                      _buildInfoRow('Unit Price', '\$${_component!.unitPrice.toStringAsFixed(2)}'),
+                                      const Text(
+                                        'Total Value will be calculated after inventory is created.',
+                                        style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
                                       ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -418,12 +483,18 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                                   Expanded(
                                     child: OutlinedButton(
                                       onPressed: () {
-                                        setState(() {
-                                          _isEditing = false;
-                                          _quantityController.text = _inventoryItem!.quantity.toString();
-                                          _minQtyController.text = _inventoryItem!.minQty.toString();
-                                          _locationController.text = _inventoryItem!.location ?? '';
-                                        });
+                                        if (_inventoryItem != null) {
+                                          // Cancel editing existing inventory
+                                          setState(() {
+                                            _isEditing = false;
+                                            _quantityController.text = _inventoryItem!.quantity.toString();
+                                            _minQtyController.text = _inventoryItem!.minQty.toString();
+                                            _locationController.text = _inventoryItem!.location ?? '';
+                                          });
+                                        } else {
+                                          // Cancel creating new inventory - go back
+                                          Navigator.pop(context);
+                                        }
                                       },
                                       child: const Text('Cancel'),
                                     ),
@@ -446,7 +517,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                                                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                               ),
                                             )
-                                          : const Text('Save Changes'),
+                                          : Text(_inventoryItem == null ? 'Create Inventory' : 'Save Changes'),
                                     ),
                                   ),
                                 ],

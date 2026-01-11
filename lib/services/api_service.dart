@@ -233,6 +233,7 @@ class ApiService {
 
   // Update component
   Future<Component> updateComponent(int id, Map<String, dynamic> updates) async {
+    print(json.encode(updates));
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/components/$id'),
