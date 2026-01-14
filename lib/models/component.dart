@@ -18,6 +18,28 @@ class Component {
   final String? notes;
   final Map<String, dynamic>? additionalCharacteristics;
   
+  // MOSFET-specific fields (optional)
+  final String? rdsOn;
+  final String? vgsMax;
+  final String? vgsTh;
+  final String? qg;
+  final String? ciss;
+  final String? switchingType;
+  
+  // Diode-specific fields (optional)
+  final String? vf;
+  final String? trr;
+  final String? cj;
+  final String? diodeType;
+  final String? internalConfig;
+  
+  // Voltage Regulator-specific fields (optional)
+  final String? vInMax;
+  final String? vOut;
+  final String? iOutMax;
+  final String? accuracy;
+  final String? regType;
+  
   // Inventory fields (included with component response)
   final int quantity;
   final int? minQty;
@@ -44,6 +66,26 @@ class Component {
     required this.status,
     this.notes,
     this.additionalCharacteristics,
+    // MOSFET fields
+    this.rdsOn,
+    this.vgsMax,
+    this.vgsTh,
+    this.qg,
+    this.ciss,
+    this.switchingType,
+    // Diode fields
+    this.vf,
+    this.trr,
+    this.cj,
+    this.diodeType,
+    this.internalConfig,
+    // Voltage Regulator fields
+    this.vInMax,
+    this.vOut,
+    this.iOutMax,
+    this.accuracy,
+    this.regType,
+    // Inventory fields
     this.quantity = 0,
     this.minQty,
     this.location,
@@ -71,6 +113,25 @@ class Component {
       status: json['status'] as String,
       notes: json['notes'] as String?,
       additionalCharacteristics: json['additional_characteristics'] as Map<String, dynamic>?,
+      // MOSFET fields
+      rdsOn: json['rds_on'] as String?,
+      vgsMax: json['vgs_max'] as String?,
+      vgsTh: json['vgs_th'] as String?,
+      qg: json['qg'] as String?,
+      ciss: json['ciss'] as String?,
+      switchingType: json['switching_type'] as String?,
+      // Diode fields
+      vf: json['vf'] as String?,
+      trr: json['trr'] as String?,
+      cj: json['cj'] as String?,
+      diodeType: json['diode_type'] as String?,
+      internalConfig: json['internal_config'] as String?,
+      // Voltage Regulator fields
+      vInMax: json['v_in_max'] as String?,
+      vOut: json['v_out'] as String?,
+      iOutMax: json['i_out_max'] as String?,
+      accuracy: json['accuracy'] as String?,
+      regType: json['reg_type'] as String?,
       // Inventory fields
       quantity: json['quantity'] as int? ?? 0,
       minQty: json['min_qty'] as int?,
@@ -100,6 +161,25 @@ class Component {
       'status': status,
       'notes': notes,
       'additional_characteristics': additionalCharacteristics,
+      // MOSFET fields
+      'rds_on': rdsOn,
+      'vgs_max': vgsMax,
+      'vgs_th': vgsTh,
+      'qg': qg,
+      'ciss': ciss,
+      'switching_type': switchingType,
+      // Diode fields
+      'vf': vf,
+      'trr': trr,
+      'cj': cj,
+      'diode_type': diodeType,
+      'internal_config': internalConfig,
+      // Voltage Regulator fields
+      'v_in_max': vInMax,
+      'v_out': vOut,
+      'i_out_max': iOutMax,
+      'accuracy': accuracy,
+      'reg_type': regType,
     };
   }
 }

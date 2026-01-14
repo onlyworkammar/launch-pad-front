@@ -281,6 +281,78 @@ class _ComponentDetailScreenState extends State<ComponentDetailScreen> {
                             ],
                           ),
 
+                          // MOSFET-specific fields (only show when category_id === 6)
+                          if (_component!.categoryId == 6 &&
+                              (_component!.rdsOn != null ||
+                                  _component!.vgsMax != null ||
+                                  _component!.vgsTh != null ||
+                                  _component!.qg != null ||
+                                  _component!.ciss != null ||
+                                  _component!.switchingType != null))
+                            _buildInfoCard(
+                              'MOSFET Specifications',
+                              [
+                                if (_component!.rdsOn != null)
+                                  _buildInfoRow('RDS(on)', _component!.rdsOn!),
+                                if (_component!.vgsMax != null)
+                                  _buildInfoRow('VGS(max)', _component!.vgsMax!),
+                                if (_component!.vgsTh != null)
+                                  _buildInfoRow('VGS(th)', _component!.vgsTh!),
+                                if (_component!.qg != null)
+                                  _buildInfoRow('Gate Charge (Qg)', _component!.qg!),
+                                if (_component!.ciss != null)
+                                  _buildInfoRow('Input Capacitance (Ciss)', _component!.ciss!),
+                                if (_component!.switchingType != null)
+                                  _buildInfoRow('Switching Type', _component!.switchingType!),
+                              ],
+                            ),
+
+                          // Diode-specific fields (only show when category_id is 7, 8, or 9)
+                          if ([7, 8, 9].contains(_component!.categoryId) &&
+                              (_component!.vf != null ||
+                                  _component!.trr != null ||
+                                  _component!.cj != null ||
+                                  _component!.diodeType != null ||
+                                  _component!.internalConfig != null))
+                            _buildInfoCard(
+                              'Diode Specifications',
+                              [
+                                if (_component!.vf != null)
+                                  _buildInfoRow('Forward Voltage (Vf)', _component!.vf!),
+                                if (_component!.trr != null)
+                                  _buildInfoRow('Reverse Recovery Time (trr)', _component!.trr!),
+                                if (_component!.cj != null)
+                                  _buildInfoRow('Junction Capacitance (Cj)', _component!.cj!),
+                                if (_component!.diodeType != null)
+                                  _buildInfoRow('Diode Type', _component!.diodeType!),
+                                if (_component!.internalConfig != null)
+                                  _buildInfoRow('Internal Config', _component!.internalConfig!),
+                              ],
+                            ),
+
+                          // Voltage Regulator-specific fields (only show when category_id === 10)
+                          if (_component!.categoryId == 10 &&
+                              (_component!.vInMax != null ||
+                                  _component!.vOut != null ||
+                                  _component!.iOutMax != null ||
+                                  _component!.accuracy != null ||
+                                  _component!.regType != null))
+                            _buildInfoCard(
+                              'Voltage Regulator Specifications',
+                              [
+                                if (_component!.vInMax != null)
+                                  _buildInfoRow('V_in(max)', _component!.vInMax!),
+                                if (_component!.vOut != null)
+                                  _buildInfoRow('V_out', _component!.vOut!),
+                                if (_component!.iOutMax != null)
+                                  _buildInfoRow('I_out(max)', _component!.iOutMax!),
+                                if (_component!.accuracy != null)
+                                  _buildInfoRow('Accuracy', _component!.accuracy!),
+                                if (_component!.regType != null)
+                                  _buildInfoRow('Regulator Type', _component!.regType!),
+                              ],
+                            ),
+
                           // Additional Characteristics
                           if (_component!.additionalCharacteristics != null)
                             _buildInfoCard(

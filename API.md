@@ -120,7 +120,7 @@ curl -X POST "http://localhost:8000/login" \
 **Note:** Default admin credentials:
 - Username: `admin`
 - Password: `admin123`
-  (Change in production!)
+(Change in production!)
 
 ---
 
@@ -228,8 +228,9 @@ curl -X POST "http://localhost:8000/chat" \
 
 ### Component Data Structure
 
-Components returned by the API include inventory information:
+Components returned by the API include inventory information and support multiple component types:
 
+**Complete Component Structure:**
 ```json
 {
   "id": 1,
@@ -249,19 +250,75 @@ Components returned by the API include inventory information:
   "unit_price": 0.15,
   "status": "ACTIVE",
   "notes": null,
+  "additional_characteristics": null,
   "quantity": 0,
   "min_qty": 10,
   "location": "A1-B2",
   "inventory_last_updated": "2024-01-15T10:30:00",
-  "total_value": 0.0
+  "total_value": 0.0,
+  "rds_on": null,
+  "vgs_max": null,
+  "vgs_th": null,
+  "qg": null,
+  "ciss": null,
+  "switching_type": null,
+  "vf": null,
+  "trr": null,
+  "cj": null,
+  "diode_type": null,
+  "internal_config": null,
+  "v_in_max": null,
+  "v_out": null,
+  "i_out_max": null,
+  "accuracy": null,
+  "reg_type": null
 }
 ```
 
-**Note:**
+**Field Categories:**
+
+1. **Basic Fields** (all components):
+   - `id`, `part_number`, `marking`, `category_id`, `category_name`
+   - `technology`, `polarity`, `channel`, `package`
+   - `v_max`, `i_max`, `power_max`, `gain_min`, `gain_max` (strings with units)
+   - `unit_price`, `status`, `notes`
+   - `additional_characteristics` (flexible JSON object)
+
+2. **MOSFET Fields** (for MOSFET components):
+   - `rds_on`: On-resistance, e.g. "22mΩ @ 4.5V"
+   - `vgs_max`: Max gate-source voltage, e.g. "±20V"
+   - `vgs_th`: Gate threshold voltage, e.g. "1–3V"
+   - `qg`: Gate charge, e.g. "15nC"
+   - `ciss`: Input capacitance, e.g. "500pF"
+   - `switching_type`: Switching type, e.g. "Logic-Level", "High-Speed"
+
+3. **Diode Fields** (for diode components):
+   - `vf`: Forward voltage @ IF, e.g. "1.0V @ 10mA", "0.35V @ 100mA"
+   - `trr`: Reverse recovery time, e.g. "4ns", "N/A"
+   - `cj`: Junction capacitance, e.g. "2pF", "20pF"
+   - `diode_type`: Diode type, e.g. "Switching", "Schottky"
+   - `internal_config`: Configuration type, e.g. "Series", "Common Cathode", "Single"
+
+4. **Voltage Regulator Fields** (for voltage regulator components):
+   - `v_in_max`: Maximum input voltage, e.g. "36V", "35V"
+   - `v_out`: Output voltage, e.g. "3.3V", "5V", "2.5V adjustable"
+   - `i_out_max`: Maximum output current, e.g. "1A", "500mA", "100mA"
+   - `accuracy`: Voltage accuracy, e.g. "±1%", "±5%"
+   - `reg_type`: Regulator type, e.g. "Linear", "Switching", "Voltage Reference"
+
+5. **Inventory Fields** (included with each component):
+   - `quantity`: Current stock quantity (0 if no inventory record)
+   - `min_qty`: Minimum quantity threshold
+   - `location`: Storage location
+   - `inventory_last_updated`: Last inventory update timestamp
+   - `total_value`: Total inventory value (calculated as `quantity * unit_price`)
+
+**Notes:** 
 - `v_max`, `i_max`, `power_max`, `gain_min`, `gain_max` are strings to support units (e.g., "25V", "0.5A", "0.625W")
-- Inventory fields (`quantity`, `min_qty`, `location`, `inventory_last_updated`, `total_value`) are included with each component
-- If no inventory record exists, `quantity` will be `0` and other inventory fields will be `null`
+- Component-specific fields (MOSFET, Diode, Voltage Regulator) are `null` for components that don't use them
+- Inventory fields are included with each component. If no inventory record exists, `quantity` will be `0` and other inventory fields will be `null`
 - `total_value` is calculated as `quantity * unit_price`
+- `additional_characteristics` is a flexible JSON object for any component-specific attributes
 
 ### Inventory Data Structure
 
@@ -1317,13 +1374,21 @@ adjusted = client.adjust_inventory_quantity(component_id=1, adjustment=-5)
 
 7. **Additional Characteristics**: The `additional_characteristics` field is a flexible JSON object that can store any component-specific attributes. This allows the schema to handle different component types (ICs, resistors, capacitors, diodes, etc.) without schema changes.
 
-8. **Inventory Cost Calculation**: The `/inventory/cost` endpoint calculates total inventory value by summing `quantity * unit_price` for all components. It also provides breakdowns by category and identifies low stock items.
+8. **Component-Specific Fields**: The API supports dedicated fields for different component types:
+   - **MOSFET fields**: `rds_on`, `vgs_max`, `vgs_th`, `qg`, `ciss`, `switching_type`
+   - **Diode fields**: `vf`, `trr`, `cj`, `diode_type`, `internal_config`
+   - **Voltage Regulator fields**: `v_in_max`, `v_out`, `i_out_max`, `accuracy`, `reg_type`
+   - These fields are optional and should be `null` for components that don't use them
 
-9. **Inventory Management**: Use `/inventory` endpoints to add, update, and manage component quantities. The `/inventory/{id}/adjust` endpoint allows you to add or subtract quantities easily without needing to know the current quantity.
+9. **Inventory Cost Calculation**: The `/inventory/cost` endpoint calculates total inventory value by summing `quantity * unit_price` for all components. It also provides breakdowns by category and identifies low stock items.
 
-10. **Components with Inventory**: The `/components` endpoints automatically include inventory information (quantity, min_qty, location, total_value) with each component. If no inventory record exists, `quantity` will be `0` and other inventory fields will be `null`.
+10. **Inventory Management**: Use `/inventory` endpoints to add, update, and manage component quantities. The `/inventory/{id}/adjust` endpoint allows you to add or subtract quantities easily without needing to know the current quantity.
 
-11. **Component Specifications as Strings**: The `v_max`, `i_max`, `power_max`, `gain_min`, and `gain_max` fields are strings to support units (e.g., "25V", "0.5A", "0.625W"). This allows flexible specification formats with units included.
+11. **Components with Inventory**: The `/components` endpoints automatically include inventory information (quantity, min_qty, location, total_value) with each component. If no inventory record exists, `quantity` will be `0` and other inventory fields will be `null`.
+
+12. **Component Specifications as Strings**: The `v_max`, `i_max`, `power_max`, `gain_min`, and `gain_max` fields are strings to support units (e.g., "25V", "0.5A", "0.625W"). This allows flexible specification formats with units included.
+
+13. **Internal Configuration**: The `internal_config` field is used for dual diode configurations (e.g., "Series", "Common Cathode", "Single") and can be used for other component-specific internal configurations.
 
 ---
 
@@ -1349,17 +1414,84 @@ Content-Type: application/json
   "category_id": 1,
   "technology": "NPN",
   "polarity": "NPN",
+  "channel": "SINGLE",
   "package": "TO-92",
   "v_max": "45V",
   "i_max": "0.1A",
   "power_max": "0.5W",
+  "gain_min": "110",
+  "gain_max": "800",
   "unit_price": 0.10,
   "notes": "General purpose NPN transistor",
   "additional_characteristics": {
-    "hfe_min": 110,
-    "hfe_max": 800,
-    "ft": 300
+    "ft": 300,
+    "vce_sat": "0.2V"
   }
+}
+```
+
+**Example for MOSFET:**
+```json
+{
+  "part_number": "2N7002",
+  "marking": "7002/703",
+  "category_id": 6,
+  "technology": "MOSFET",
+  "polarity": "N-MOSFET",
+  "channel": "N",
+  "package": "SOT-23",
+  "v_max": "60V",
+  "i_max": "300mA",
+  "power_max": "350mW",
+  "unit_price": 0.10,
+  "rds_on": "5Ω @ 4.5V",
+  "vgs_max": "±20V",
+  "vgs_th": "2–4V",
+  "qg": "2.5nC",
+  "ciss": "50pF",
+  "switching_type": "Standard",
+  "notes": "Small-signal switching MOSFET"
+}
+```
+
+**Example for Diode:**
+```json
+{
+  "part_number": "1N4148",
+  "marking": "1N4148",
+  "category_id": 7,
+  "technology": "DIODE",
+  "polarity": "PN",
+  "channel": "SINGLE",
+  "package": "SOD-323",
+  "v_max": "100V",
+  "i_max": "150mA",
+  "power_max": "200mW",
+  "unit_price": 0.05,
+  "vf": "1.0V @ 10mA",
+  "trr": "4ns",
+  "cj": "2pF",
+  "diode_type": "Switching",
+  "notes": "High-speed switching diode"
+}
+```
+
+**Example for Voltage Regulator:**
+```json
+{
+  "part_number": "TL431",
+  "marking": "431",
+  "category_id": 10,
+  "technology": "IC",
+  "package": "SOT-23/TO-92",
+  "v_in_max": "36V",
+  "v_out": "2.5V adjustable",
+  "i_out_max": "100mA",
+  "power_max": "500mW",
+  "accuracy": "±1%",
+  "reg_type": "Voltage Reference",
+  "unit_price": 0.25,
+  "notes": "Precision adjustable voltage reference"
 }
 ```
 
@@ -1369,7 +1501,11 @@ Content-Type: application/json
 - **For ICs (like RK1808):** `{"pin_count": 48, "operating_voltage": "3.3V", "core": "ARM Cortex-A35", "memory": "512KB"}`
 - **For Resistors:** `{"resistance": "10k", "tolerance": "5%", "power_rating": "0.25W"}`
 - **For Capacitors:** `{"capacitance": "100uF", "voltage_rating": "25V", "tolerance": "20%", "type": "Electrolytic"}`
-- **For Diodes:** `{"forward_voltage": "0.7V", "reverse_voltage": "100V", "current_rating": "1A"}`
+
+**Note:** Use dedicated fields when available:
+- **For MOSFETs**: Use `rds_on`, `vgs_max`, `vgs_th`, `qg`, `ciss`, `switching_type`
+- **For Diodes**: Use `vf`, `trr`, `cj`, `diode_type`, `internal_config`
+- **For Voltage Regulators**: Use `v_in_max`, `v_out`, `i_out_max`, `accuracy`, `reg_type`
 
 **Response:** `201 Created`
 ```json
@@ -2077,23 +2213,134 @@ The schema supports various component types through the flexible `additional_cha
 }
 ```
 
-### Diodes
+### Diodes (using dedicated diode fields)
 ```json
 {
   "part_number": "1N4148",
   "marking": "1N4148",
-  "category_id": 5,
-  "package": "DO-35",
-    "v_max": "100V",
-    "i_max": "0.2A",
-    "unit_price": 0.05,
-  "additional_characteristics": {
-    "forward_voltage": "0.7V",
-    "reverse_voltage": "100V",
-    "current_rating": "200mA",
-    "switching_speed": "4ns",
-    "type": "Signal Diode"
-  }
+  "category_id": 7,
+  "technology": "DIODE",
+  "polarity": "PN",
+  "channel": "SINGLE",
+  "package": "SOD-323",
+  "v_max": "100V",
+  "i_max": "150mA",
+  "power_max": "200mW",
+  "unit_price": 0.05,
+  "vf": "1.0V @ 10mA",
+  "trr": "4ns",
+  "cj": "2pF",
+  "diode_type": "Switching",
+  "internal_config": null,
+  "notes": "High-speed switching diode"
+}
+```
+
+### Dual Diodes (using internal_config)
+```json
+{
+  "part_number": "BAV99",
+  "marking": "A7",
+  "category_id": 8,
+  "technology": "DIODE",
+  "polarity": "PN",
+  "channel": "DUAL",
+  "package": "SOT-23",
+  "v_max": "70V",
+  "i_max": "200mA",
+  "power_max": "250mW",
+  "unit_price": 0.08,
+  "vf": "1.0V @ 10mA",
+  "trr": "4ns",
+  "cj": "1.5pF",
+  "diode_type": "Switching",
+  "internal_config": "Series",
+  "notes": "Dual series switching diode"
+}
+```
+
+### Schottky Diodes
+```json
+{
+  "part_number": "BAT54",
+  "marking": "KL1",
+  "category_id": 9,
+  "technology": "DIODE",
+  "polarity": "PN",
+  "channel": "SINGLE",
+  "package": "SOT-23",
+  "v_max": "30V",
+  "i_max": "200mA",
+  "power_max": "250mW",
+  "unit_price": 0.06,
+  "vf": "0.35V @ 100mA",
+  "trr": "N/A",
+  "cj": "20pF",
+  "diode_type": "Schottky",
+  "internal_config": "Single",
+  "notes": "Low Vf Schottky diode"
+}
+```
+
+### MOSFETs (using dedicated MOSFET fields)
+```json
+{
+  "part_number": "2N7002",
+  "marking": "7002/703",
+  "category_id": 6,
+  "technology": "MOSFET",
+  "polarity": "N-MOSFET",
+  "channel": "N",
+  "package": "SOT-23",
+  "v_max": "60V",
+  "i_max": "300mA",
+  "power_max": "350mW",
+  "unit_price": 0.10,
+  "rds_on": "5Ω @ 4.5V",
+  "vgs_max": "±20V",
+  "vgs_th": "2–4V",
+  "qg": "2.5nC",
+  "ciss": "50pF",
+  "switching_type": "Standard",
+  "notes": "Small-signal switching MOSFET"
+}
+```
+
+### Voltage Regulators (using dedicated regulator fields)
+```json
+{
+  "part_number": "TL431",
+  "marking": "431",
+  "category_id": 10,
+  "technology": "IC",
+  "package": "SOT-23/TO-92",
+  "v_in_max": "36V",
+  "v_out": "2.5V adjustable",
+  "i_out_max": "100mA",
+  "power_max": "500mW",
+  "accuracy": "±1%",
+  "reg_type": "Voltage Reference",
+  "unit_price": 0.25,
+  "notes": "Precision adjustable voltage reference"
+}
+```
+
+### Linear Voltage Regulators
+```json
+{
+  "part_number": "CJ78L05",
+  "marking": "L05",
+  "category_id": 10,
+  "technology": "IC",
+  "package": "TO-92/TO-220",
+  "v_in_max": "35V",
+  "v_out": "5V",
+  "i_out_max": "1000mA",
+  "power_max": "1W",
+  "accuracy": "±5%",
+  "reg_type": "Linear Regulator",
+  "unit_price": 0.15,
+  "notes": "5V linear voltage regulator"
 }
 ```
 
@@ -2105,21 +2352,26 @@ The schema supports various component types through the flexible `additional_cha
   "category_id": 1,
   "technology": "NPN",
   "polarity": "NPN",
+  "channel": "SINGLE",
   "package": "TO-92",
-    "v_max": "45V",
-    "i_max": "0.1A",
-    "power_max": "0.5W",
-    "unit_price": 0.10,
+  "v_max": "45V",
+  "i_max": "0.1A",
+  "power_max": "0.5W",
+  "gain_min": "110",
+  "gain_max": "800",
+  "unit_price": 0.10,
   "additional_characteristics": {
-    "hfe_min": 110,
-    "hfe_max": 800,
     "ft": 300,
     "vce_sat": "0.2V"
   }
 }
 ```
 
-**Note:** The `additional_characteristics` field allows you to store any component-specific attributes that don't fit in the standard schema fields. This makes the system flexible enough to handle any component type.
+**Note:** 
+- The `additional_characteristics` field allows you to store any component-specific attributes that don't fit in the standard schema fields
+- Component-specific fields (MOSFET, Diode, Voltage Regulator) are `null` for components that don't use them
+- Use dedicated fields (`rds_on`, `vf`, `v_out`, etc.) when available instead of `additional_characteristics` for better type safety and querying
+- The `internal_config` field is used for dual diode configurations (e.g., "Series", "Common Cathode", "Single")
 
 ---
 
@@ -2341,6 +2593,64 @@ curl -X DELETE "http://localhost:8000/categories/3" \
 
 ---
 
+---
+
+## Component Field Reference
+
+### All Available Component Fields
+
+**Basic Fields (All Components):**
+- `id` (integer, read-only): Component ID
+- `part_number` (string, required): Unique part number
+- `marking` (string, optional): Component marking
+- `category_id` (integer, optional): Category ID
+- `category_name` (string, read-only): Category name
+- `technology` (string, optional): Technology type (e.g., "NPN", "PNP", "MOSFET", "DIODE", "IC")
+- `polarity` (string, optional): Polarity (e.g., "NPN", "PNP", "N-MOSFET", "P-MOSFET", "PN")
+- `channel` (string, optional): Channel type (e.g., "SINGLE", "DUAL", "N", "P")
+- `package` (string, optional): Package type (e.g., "TO-92", "SOT-23", "DIP-16")
+- `v_max` (string, optional): Maximum voltage with units (e.g., "25V", "60V", "-200V")
+- `i_max` (string, optional): Maximum current with units (e.g., "0.5A", "300mA", "100mA")
+- `power_max` (string, optional): Maximum power with units (e.g., "0.625W", "350mW", "1W")
+- `gain_min` (string, optional): Minimum gain with units (e.g., "100", "110")
+- `gain_max` (string, optional): Maximum gain with units (e.g., "300", "800")
+- `unit_price` (float, optional): Price per unit (default: 0.0)
+- `status` (string, optional): Status ("ACTIVE" or "INACTIVE", default: "ACTIVE")
+- `notes` (string, optional): Additional notes
+- `additional_characteristics` (object, optional): Flexible JSON object for component-specific attributes
+
+**MOSFET-Specific Fields:**
+- `rds_on` (string, optional): On-resistance (e.g., "5Ω @ 4.5V", "22mΩ @ 4.5V")
+- `vgs_max` (string, optional): Max gate-source voltage (e.g., "±20V", "±12V")
+- `vgs_th` (string, optional): Gate threshold voltage (e.g., "2–4V", "1–3V")
+- `qg` (string, optional): Gate charge (e.g., "2.5nC", "15nC")
+- `ciss` (string, optional): Input capacitance (e.g., "50pF", "500pF")
+- `switching_type` (string, optional): Switching type (e.g., "Standard", "Logic-Level", "High-Speed")
+
+**Diode-Specific Fields:**
+- `vf` (string, optional): Forward voltage @ IF (e.g., "1.0V @ 10mA", "0.35V @ 100mA")
+- `trr` (string, optional): Reverse recovery time (e.g., "4ns", "2ns", "N/A")
+- `cj` (string, optional): Junction capacitance (e.g., "2pF", "20pF", "25pF")
+- `diode_type` (string, optional): Diode type (e.g., "Switching", "Schottky")
+- `internal_config` (string, optional): Configuration type (e.g., "Series", "Common Cathode", "Common Anode", "Single")
+
+**Voltage Regulator-Specific Fields:**
+- `v_in_max` (string, optional): Maximum input voltage (e.g., "36V", "35V")
+- `v_out` (string, optional): Output voltage (e.g., "3.3V", "5V", "2.5V adjustable")
+- `i_out_max` (string, optional): Maximum output current (e.g., "1A", "500mA", "100mA")
+- `accuracy` (string, optional): Voltage accuracy (e.g., "±1%", "±5%")
+- `reg_type` (string, optional): Regulator type (e.g., "Linear", "Switching", "Voltage Reference")
+
+**Inventory Fields (Included in Component Responses):**
+- `quantity` (integer, read-only): Current stock quantity (0 if no inventory record)
+- `min_qty` (integer, read-only): Minimum quantity threshold
+- `location` (string, read-only): Storage location
+- `inventory_last_updated` (string, read-only): Last inventory update timestamp
+- `total_value` (float, read-only): Total inventory value (quantity * unit_price)
+
+---
+
+**check rules.md**
+
 **Last Updated:** 2024-01-15
 **API Version:** 1.0.0
-

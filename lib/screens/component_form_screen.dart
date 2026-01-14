@@ -37,6 +37,28 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
   final _gainMinController = TextEditingController();
   final _gainMaxController = TextEditingController();
   final _unitPriceController = TextEditingController();
+  
+  // MOSFET-specific controllers
+  final _rdsOnController = TextEditingController();
+  final _vgsMaxController = TextEditingController();
+  final _vgsThController = TextEditingController();
+  final _qgController = TextEditingController();
+  final _cissController = TextEditingController();
+  final _switchingTypeController = TextEditingController();
+  
+  // Diode-specific controllers
+  final _vfController = TextEditingController();
+  final _trrController = TextEditingController();
+  final _cjController = TextEditingController();
+  final _diodeTypeController = TextEditingController();
+  final _internalConfigController = TextEditingController();
+  
+  // Voltage Regulator-specific controllers
+  final _vInMaxController = TextEditingController();
+  final _vOutController = TextEditingController();
+  final _iOutMaxController = TextEditingController();
+  final _accuracyController = TextEditingController();
+  final _regTypeController = TextEditingController();
 
   bool _isLoading = false;
   bool _isEditMode = false;
@@ -89,6 +111,25 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
     _gainMinController.dispose();
     _gainMaxController.dispose();
     _unitPriceController.dispose();
+    // MOSFET controllers
+    _rdsOnController.dispose();
+    _vgsMaxController.dispose();
+    _vgsThController.dispose();
+    _qgController.dispose();
+    _cissController.dispose();
+    _switchingTypeController.dispose();
+    // Diode controllers
+    _vfController.dispose();
+    _trrController.dispose();
+    _cjController.dispose();
+    _diodeTypeController.dispose();
+    _internalConfigController.dispose();
+    // Voltage Regulator controllers
+    _vInMaxController.dispose();
+    _vOutController.dispose();
+    _iOutMaxController.dispose();
+    _accuracyController.dispose();
+    _regTypeController.dispose();
     super.dispose();
   }
 
@@ -129,6 +170,25 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
         _gainMaxController.text = component.gainMax?.toString() ?? '';
         _unitPriceController.text = component.unitPrice.toString();
         _notesController.text = component.notes ?? '';
+        // MOSFET fields
+        _rdsOnController.text = component.rdsOn ?? '';
+        _vgsMaxController.text = component.vgsMax ?? '';
+        _vgsThController.text = component.vgsTh ?? '';
+        _qgController.text = component.qg ?? '';
+        _cissController.text = component.ciss ?? '';
+        _switchingTypeController.text = component.switchingType ?? '';
+        // Diode fields
+        _vfController.text = component.vf ?? '';
+        _trrController.text = component.trr ?? '';
+        _cjController.text = component.cj ?? '';
+        _diodeTypeController.text = component.diodeType ?? '';
+        _internalConfigController.text = component.internalConfig ?? '';
+        // Voltage Regulator fields
+        _vInMaxController.text = component.vInMax ?? '';
+        _vOutController.text = component.vOut ?? '';
+        _iOutMaxController.text = component.iOutMax ?? '';
+        _accuracyController.text = component.accuracy ?? '';
+        _regTypeController.text = component.regType ?? '';
         if (component.additionalCharacteristics != null) {
           _additionalCharsController.text = const JsonEncoder.withIndent('  ').convert(component.additionalCharacteristics);
         }
@@ -179,6 +239,25 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
         'gain_max': _gainMaxController.text.isEmpty ? null : _gainMaxController.text,
         'unit_price': double.parse(_unitPriceController.text),
         'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        // MOSFET fields
+        'rds_on': _rdsOnController.text.trim().isEmpty ? null : _rdsOnController.text.trim(),
+        'vgs_max': _vgsMaxController.text.trim().isEmpty ? null : _vgsMaxController.text.trim(),
+        'vgs_th': _vgsThController.text.trim().isEmpty ? null : _vgsThController.text.trim(),
+        'qg': _qgController.text.trim().isEmpty ? null : _qgController.text.trim(),
+        'ciss': _cissController.text.trim().isEmpty ? null : _cissController.text.trim(),
+        'switching_type': _switchingTypeController.text.trim().isEmpty ? null : _switchingTypeController.text.trim(),
+        // Diode fields
+        'vf': _vfController.text.trim().isEmpty ? null : _vfController.text.trim(),
+        'trr': _trrController.text.trim().isEmpty ? null : _trrController.text.trim(),
+        'cj': _cjController.text.trim().isEmpty ? null : _cjController.text.trim(),
+        'diode_type': _diodeTypeController.text.trim().isEmpty ? null : _diodeTypeController.text.trim(),
+        'internal_config': _internalConfigController.text.trim().isEmpty ? null : _internalConfigController.text.trim(),
+        // Voltage Regulator fields
+        'v_in_max': _vInMaxController.text.trim().isEmpty ? null : _vInMaxController.text.trim(),
+        'v_out': _vOutController.text.trim().isEmpty ? null : _vOutController.text.trim(),
+        'i_out_max': _iOutMaxController.text.trim().isEmpty ? null : _iOutMaxController.text.trim(),
+        'accuracy': _accuracyController.text.trim().isEmpty ? null : _accuracyController.text.trim(),
+        'reg_type': _regTypeController.text.trim().isEmpty ? null : _regTypeController.text.trim(),
       };
 
       // Parse additional characteristics JSON
@@ -481,6 +560,171 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
                         ),
                       ],
                     ),
+
+                    // MOSFET-specific fields (only show when category_id === 6)
+                    if (_categoryId == 6)
+                      _buildSectionCard(
+                        'MOSFET Specifications (Optional)',
+                        [
+                          TextFormField(
+                            controller: _rdsOnController,
+                            decoration: const InputDecoration(
+                              labelText: 'RDS(on)',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "5Ω @ 4.5V"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _vgsMaxController,
+                            decoration: const InputDecoration(
+                              labelText: 'VGS(max)',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "±20V"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _vgsThController,
+                            decoration: const InputDecoration(
+                              labelText: 'VGS(th)',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "2–4V"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _qgController,
+                            decoration: const InputDecoration(
+                              labelText: 'Gate Charge (Qg)',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "2.5nC"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _cissController,
+                            decoration: const InputDecoration(
+                              labelText: 'Input Capacitance (Ciss)',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "150pF"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _switchingTypeController,
+                            decoration: const InputDecoration(
+                              labelText: 'Switching Type',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "Power MOSFET"',
+                            ),
+                          ),
+                        ],
+                      ),
+
+                    // Diode-specific fields (only show when category_id is 7, 8, or 9)
+                    if (_categoryId != null && [7, 8, 9].contains(_categoryId))
+                      _buildSectionCard(
+                        'Diode Specifications (Optional)',
+                        [
+                          TextFormField(
+                            controller: _vfController,
+                            decoration: const InputDecoration(
+                              labelText: 'Forward Voltage (Vf)',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "1.0V @ 10mA"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _trrController,
+                            decoration: const InputDecoration(
+                              labelText: 'Reverse Recovery Time (trr)',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "4ns"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _cjController,
+                            decoration: const InputDecoration(
+                              labelText: 'Junction Capacitance (Cj)',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "2pF"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _diodeTypeController,
+                            decoration: const InputDecoration(
+                              labelText: 'Diode Type',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "Switching", "Schottky"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _internalConfigController,
+                            decoration: const InputDecoration(
+                              labelText: 'Internal Config',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "Series", "Common Cathode", "Single"',
+                            ),
+                          ),
+                        ],
+                      ),
+
+                    // Voltage Regulator-specific fields (only show when category_id === 10)
+                    if (_categoryId == 10)
+                      _buildSectionCard(
+                        'Voltage Regulator Specifications (Optional)',
+                        [
+                          TextFormField(
+                            controller: _vInMaxController,
+                            decoration: const InputDecoration(
+                              labelText: 'V_in(max)',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "36V"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _vOutController,
+                            decoration: const InputDecoration(
+                              labelText: 'V_out',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "3.3V", "5V", "2.5V adjustable"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _iOutMaxController,
+                            decoration: const InputDecoration(
+                              labelText: 'I_out(max)',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "1A", "500mA"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _accuracyController,
+                            decoration: const InputDecoration(
+                              labelText: 'Accuracy',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "±2%"',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _regTypeController,
+                            decoration: const InputDecoration(
+                              labelText: 'Regulator Type',
+                              border: OutlineInputBorder(),
+                              hintText: 'e.g., "Linear", "Switching", "Voltage Reference"',
+                            ),
+                          ),
+                        ],
+                      ),
 
                     // Additional Characteristics
                     _buildSectionCard(

@@ -491,5 +491,118 @@ class ApiService {
       throw Exception('Failed to list categories: $e');
     }
   }
+
+  // Create category
+  Future<Category> createCategory({
+    required String name,
+    String? description,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/categories'),
+        headers: await getHeaders(),
+        body: json.encode({
+          'name': name,
+          'description': description,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        return Category.fromJson(data);
+      } else if (response.statusCode == 401) {
+        await removeToken();
+        throw Exception('Unauthorized - please login again');
+      } else {
+        final error = json.decode(response.body) as Map<String, dynamic>;
+        throw Exception(error['detail'] as String? ?? 'Failed to create category');
+      }
+    } catch (e) {
+      throw Exception('Failed to create category: $e');
+    }
+  }
+
+  // Get category by ID
+  Future<Category> getCategory(int categoryId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/categories/$categoryId'),
+        headers: await getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        return Category.fromJson(data);
+      } else if (response.statusCode == 401) {
+        await removeToken();
+        throw Exception('Unauthorized - please login again');
+      } else if (response.statusCode == 404) {
+        throw Exception('Category not found');
+      } else {
+        throw Exception('Failed to get category');
+      }
+    } catch (e) {
+      throw Exception('Failed to get category: $e');
+    }
+  }
+
+  // Update category
+  Future<Category> updateCategory(
+    int categoryId, {
+    String? name,
+    String? description,
+    String? status,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (name != null) body['name'] = name;
+      if (description != null) body['description'] = description;
+      if (status != null) body['status'] = status;
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/categories/$categoryId'),
+        headers: await getHeaders(),
+        body: json.encode(body),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        return Category.fromJson(data);
+      } else if (response.statusCode == 401) {
+        await removeToken();
+        throw Exception('Unauthorized - please login again');
+      } else if (response.statusCode == 404) {
+        throw Exception('Category not found');
+      } else {
+        final error = json.decode(response.body) as Map<String, dynamic>;
+        throw Exception(error['detail'] as String? ?? 'Failed to update category');
+      }
+    } catch (e) {
+      throw Exception('Failed to update category: $e');
+    }
+  }
+
+  // Delete category (soft delete)
+  Future<void> deleteCategory(int categoryId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/categories/$categoryId'),
+        headers: await getHeaders(),
+      );
+
+      if (response.statusCode == 204) {
+        return;
+      } else if (response.statusCode == 401) {
+        await removeToken();
+        throw Exception('Unauthorized - please login again');
+      } else if (response.statusCode == 404) {
+        throw Exception('Category not found');
+      } else {
+        throw Exception('Failed to delete category');
+      }
+    } catch (e) {
+      throw Exception('Failed to delete category: $e');
+    }
+  }
 }
 

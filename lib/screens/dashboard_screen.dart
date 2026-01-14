@@ -9,6 +9,7 @@ import 'components_list_screen.dart';
 import 'component_form_screen.dart';
 import 'inventory_analysis_screen.dart';
 import 'inventory_list_screen.dart';
+import 'categories_list_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -169,6 +170,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ComponentsListScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.category),
+            title: const Text('Categories'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CategoriesListScreen()),
               );
             },
           ),
