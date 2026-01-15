@@ -439,16 +439,20 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
                       'Technical Specifications',
                       [
                         DropdownButtonFormField<String>(
-                          value: _technology,
+                          value: _technology != null && ['NPN', 'PNP', 'NMOS', 'PMOS', 'DIODE'].contains(_technology)
+                              ? _technology
+                              : null,
                           decoration: const InputDecoration(
                             labelText: 'Technology',
                             border: OutlineInputBorder(),
                           ),
                           items: const [
+                            DropdownMenuItem(value: null, child: Text('None')),
                             DropdownMenuItem(value: 'NPN', child: Text('NPN')),
                             DropdownMenuItem(value: 'PNP', child: Text('PNP')),
                             DropdownMenuItem(value: 'NMOS', child: Text('NMOS')),
                             DropdownMenuItem(value: 'PMOS', child: Text('PMOS')),
+                            DropdownMenuItem(value: 'DIODE', child: Text('DIODE')),
                           ],
                           onChanged: (value) {
                             setState(() {
@@ -458,14 +462,18 @@ class _ComponentFormScreenState extends State<ComponentFormScreen> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
-                          value: _polarity,
+                          value: _polarity != null && ['NPN', 'PNP', 'PN'].contains(_polarity)
+                              ? _polarity
+                              : null,
                           decoration: const InputDecoration(
                             labelText: 'Polarity',
                             border: OutlineInputBorder(),
                           ),
                           items: const [
+                            DropdownMenuItem(value: null, child: Text('None')),
                             DropdownMenuItem(value: 'NPN', child: Text('NPN')),
                             DropdownMenuItem(value: 'PNP', child: Text('PNP')),
+                            DropdownMenuItem(value: 'PN', child: Text('PN')),
                           ],
                           onChanged: (value) {
                             setState(() {
